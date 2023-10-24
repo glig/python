@@ -2,7 +2,7 @@
 # apply将对象拆分成多块，然后在每一块上调用传递的函数，之后尝试将每一块拼接到一起
 import numpy as np
 import pandas as pd
-
+import statsmodels.api as sm
 tips = pd.read_csv('examples/tips.csv')
 # 在读取小费的DataFrame中添加tip_pic列值为tip列减去total_bill列。
 tips['tip_pct'] = tips['tip'] / tips['total_bill']
@@ -103,4 +103,29 @@ grouped=df.groupby('category')
 get_wavg=lambda g:np.average(g['data'],weights=g['weights'])
 result=grouped.apply(get_wavg)
 
-print(result)
+
+close_px=pd.read_csv('examples/stock_px.csv',parse_dates=True,index_col=0)
+close_px.info()
+close_px[-4:]
+# 计算每一列与SPX的关联性即相关性
+spx_corr=lambda x: x.corrwith(x['SPX'])
+# 计算每个元素与前一个元素的百分比的变化，删除缺失值
+rets=close_px.pct_change().dropna()
+# 按照年对百分比变化进行分组
+get_year=lambda x: x.year
+by_year=rets.groupby(get_year)
+by_year.apply(spx_corr)
+# 也可以计算内部相关性，计算苹果和微软的年度相关性
+by_year.apply(lambda g: g['AAPL'].corr(g['MSFT']))
+
+# 10.3.6 示例：逐组线性回归
+def regresss(data,yvar,xvars):
+    y=data[yvar]
+    x=data[xvars]
+    x['intercept']=1.
+    result=sm.OLS(y,x).fit()
+    return result.params
+by_year.apply(regresss,'AAPL',['SPX'])
+
+
+print(by_year.apply(regresss,'AAPL',['SPX']))
